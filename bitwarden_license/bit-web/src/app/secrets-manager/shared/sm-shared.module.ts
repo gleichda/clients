@@ -7,6 +7,7 @@ import { FilterComponent } from "../layout/filter.component";
 import { HeaderComponent } from "../layout/header.component";
 import { NewMenuComponent } from "../layout/new-menu.component";
 import { NoItemsComponent } from "../layout/no-items.component";
+import { ProductSwitcherComponent } from "../layout/product-switcher.component";
 
 @NgModule({
   imports: [SharedModule],
@@ -17,6 +18,7 @@ import { NoItemsComponent } from "../layout/no-items.component";
     HeaderComponent,
     NewMenuComponent,
     NoItemsComponent,
+    ProductSwitcherComponent,
   ],
   declarations: [
     BulkStatusDialogComponent,
@@ -24,6 +26,7 @@ import { NoItemsComponent } from "../layout/no-items.component";
     HeaderComponent,
     NewMenuComponent,
     NoItemsComponent,
+    ProductSwitcherComponent,
   ],
   providers: [],
   bootstrap: [],
