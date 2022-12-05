@@ -2,6 +2,7 @@ import { NgModule } from "@angular/core";
 
 import { UserVerificationComponent } from "@bitwarden/angular/components/user-verification.component";
 
+import { ProductSwitcherComponent } from "../../../../../bitwarden_license/bit-web/src/app/secrets-manager/layout/product-switcher/product-switcher.component";
 import { AcceptEmergencyComponent } from "../accounts/accept-emergency.component";
 import { AcceptOrganizationComponent } from "../accounts/accept-organization.component";
 import { HintComponent } from "../accounts/hint.component";
@@ -257,6 +258,7 @@ import { SharedModule } from ".";
     PreferencesComponent,
     PremiumBadgeComponent,
     PremiumComponent,
+    ProductSwitcherComponent,
     ProfileComponent,
     ProvidersComponent,
     PurgeVaultComponent,

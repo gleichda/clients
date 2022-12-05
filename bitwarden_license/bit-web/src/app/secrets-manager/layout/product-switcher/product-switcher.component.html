@@ -1,0 +1,43 @@
+<button
+  [buttonType]="'contrast'"
+  bitIconButton="bwi bwi-fw bwi-filter"
+  (click)="toggleMenu()"
+></button>
+<ng-template #menuTemplateRef>
+  <div
+    cdkTrapFocus
+    cdkTrapFocusAutoCapture
+    class="tw-rounded tw-border tw-border-solid tw-border-secondary-500 tw-bg-background tw-bg-clip-padding"
+  >
+    <div class="tw-p-4">
+      <!-- Bento box -->
+      <div class="tw-grid tw-grid-cols-3 tw-gap-2">
+        <a
+          *ngFor="let product of bentoProducts$ | async"
+          [routerLink]="product.appRoute"
+          class="tw-flex tw-aspect-square tw-h-full tw-w-full tw-flex-col tw-items-center tw-justify-center tw-rounded tw-py-1 tw-px-1 hover:tw-bg-[rgba(26,65,172,0.03)] hover:tw-no-underline"
+          routerLinkActive="tw-font-bold tw-bg-primary-500 hover:tw-bg-primary-500 [&>*]:tw-text-contrast"
+        >
+          <i class="bwi {{ product.icon }} tw-text-4xl tw-m-0 tw-mb-1"></i>
+          <span class="tw-min-w-[75px] tw-max-w-min tw-text-center tw-text-xs hover:tw-underline">{{
+            product.name
+          }}</span>
+        </a>
+      </div>
+      <!-- Other options -->
+      <ng-template *ngIf="otherProducts$ | async as otherProducts">
+        <section
+          *ngIf="otherProducts.length !== 0"
+          class="tw-mt-4 tw-flex tw-w-full tw-flex-col tw-border-0 tw-border-t tw-border-solid tw-border-t-text-muted tw-p-2"
+        >
+          <span class="tw-mb-1 tw-text-xs tw-text-muted">More from Bitwarden</span>
+          <a *ngFor="let product of otherProducts" [routerLink]="product.marketingRoute">
+            <span class="tw-text-primary-500"
+              ><i class="bwi {{ product.icon }} tw-m-0 !tw-mr-3"></i>{{ product.name }}</span
+            >
+          </a>
+        </section>
+      </ng-template>
+    </div>
+  </div>
+</ng-template>
