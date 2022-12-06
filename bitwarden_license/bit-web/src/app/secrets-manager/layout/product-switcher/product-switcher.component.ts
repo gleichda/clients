@@ -4,74 +4,57 @@ import {
   Component,
   ElementRef,
   OnDestroy,
-  OnInit,
   TemplateRef,
   ViewChild,
   ViewContainerRef,
 } from "@angular/core";
+import { ActivatedRoute } from "@angular/router";
 import {
-  BehaviorSubject,
+  combineLatest,
   filter,
+  map,
   mergeWith,
   Observable,
+  startWith,
   Subject,
   Subscription,
   takeUntil,
 } from "rxjs";
 
 import { OrganizationService } from "@bitwarden/common/abstractions/organization/organization.service.abstraction";
-import { Provider } from "@bitwarden/common/models/domain/provider";
 
-type ProductKeys =
-  | "passwordManagement"
-  | "secretsManagement"
-  | "provider"
-  | "admin"
-  | "organizations";
-
-type ProductDetails = {
+type ProductSwitcherItem = {
+  /**
+   * Displayed name
+   */
   name: string;
-  icon: string;
-  appRoute?: string | any[];
-  marketingRoute?: string;
-};
 
-const allProducts: Record<ProductKeys, ProductDetails> = {
-  passwordManagement: {
-    name: "Password Manager",
-    icon: "bwi-lock",
-    appRoute: "/vault",
-    marketingRoute: "https://bitwarden.com/products/personal/",
-  },
-  secretsManagement: {
-    name: "Secrets Manager Beta",
-    icon: "bwi-cli",
-    // TODO: remove key
-    appRoute: "/sm/8018e10a-871f-403a-bea2-af4a013ccc73",
-    marketingRoute: "#",
-  },
-  provider: {
-    name: "Admin Console",
-    icon: "bwi-dashboard",
-    appRoute: "#",
-  },
-  admin: {
-    name: "Provider Portal",
-    icon: "bwi-provider",
-    appRoute: "#",
-  },
-  organizations: {
-    name: "Organizations",
-    icon: "bwi-business",
-    marketingRoute: "https://bitwarden.com/products/business/",
-  },
-} as const;
+  /**
+   * Displayed icon
+   */
+  icon: string;
+
+  /**
+   * Which section to show the product in
+   */
+  visibility: "bento" | "other" | "hidden";
+
+  /**
+   * Route for items in the `bentoProducts$` section
+   */
+  appRoute?: string | any[];
+
+  /**
+   * Route for items in the `otherProducts$` section
+   */
+  marketingRoute?: string | any[];
+};
 
 @Component({
   selector: "product-switcher",
   templateUrl: "./product-switcher.component.html",
 })
-export class ProductSwitcherComponent implements OnInit, OnDestroy {
+export class ProductSwitcherComponent implements OnDestroy {
   private _destroy$ = new Subject<void>();
 
   private isOpen = false;
@@ -106,72 +89,70 @@ export class ProductSwitcherComponent implements OnInit, OnDestroy {
       .withFlexibleDimensions(false)
       .withPush(false),
   };
-
   private closedEventsSub: Subscription;
 
-  protected bentoProducts$ = new BehaviorSubject<ProductDetails[]>([]);
-  protected otherProducts$ = new BehaviorSubject<ProductDetails[]>([]);
+  private products$: Observable<ProductSwitcherItem[]> = combineLatest([
+    this.organizationService.organizations$,
+    this.route.paramMap,
+  ]).pipe(
+    map(([orgs, paramMap]) => {
+      const currentOrg = orgs.find((o) => o.id === paramMap.get("organizationId"));
 
-  protected providers: Provider[] = [];
-  private singleOrgMode = false;
+      const products: ProductSwitcherItem[] = [
+        {
+          name: "Password Manager",
+          icon: "bwi-lock",
+          appRoute: "/vault",
+          marketingRoute: "https://bitwarden.com/products/personal/",
+          visibility: "bento",
+        },
+        {
+          name: "Secrets Manager Beta",
+          icon: "bwi-cli",
+          appRoute: ["/sm", currentOrg.id],
+          // TODO update marketing link
+          marketingRoute: "https://bitwarden.com/products/secrets/",
+          visibility: "bento",
+        },
+        {
+          name: "Organizations",
+          icon: "bwi-business",
+          marketingRoute: "https://bitwarden.com/products/business/",
+          visibility: orgs.length > 0 ? "hidden" : "other",
+        },
+        // {
+        //   name: "Admin Console",
+        //   icon: "bwi-dashboard",
+        //   appRoute: "#",
+        //   visibility: canAccessOrgAdmin(currentOrg) ? 'bento' : 'hidden'
+        // },
+        // {
+        //   name: "Provider Portal",
+        //   icon: "bwi-provider",
+        //   appRoute: "#",
+        //   visibility: currentOrg?.isProviderUser ? 'bento' : 'hidden'
+        // },
+      ];
 
-  // TODO bind to routerEvents
-  private visibility$ = new BehaviorSubject<Record<ProductKeys, boolean>>({
-    // TODO how is are these determined?
-    passwordManagement: true,
-    secretsManagement: true,
-    // TODO remove key
-    provider: this.organizationService.getByIdentifier("8018e10a-871f-403a-bea2-af4a013ccc73")
-      ?.isProviderUser,
-    // canAccessOrgAdmin
-    admin: true,
-    organizations: this.organizationService.hasOrganizations(),
-  });
+      return products;
+    })
+  );
+
+  protected groupedProjects$ = this.products$.pipe(
+    map((v) => arrayGroup(v, (foo) => foo.visibility)),
+    startWith({ bento: [], other: [] })
+  );
 
   constructor(
     private organizationService: OrganizationService,
     private overlay: Overlay,
     private elementRef: ElementRef<HTMLElement>,
-    private viewContainerRef: ViewContainerRef
+    private viewContainerRef: ViewContainerRef,
+    private route: ActivatedRoute
   ) {}
 
   protected toggleMenu() {
     this.isOpen ? this.destroyMenu() : this.openMenu();
-  }
-
-  ngOnInit() {
-    this.visibility$
-      .asObservable()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe((vis) => {
-        const nextBento: ProductDetails[] = [];
-        const nextOther: ProductDetails[] = [];
-        Object.entries(vis).forEach(([productKey, isInBento]: [ProductKeys, boolean]) => {
-          const product = allProducts[productKey];
-
-          /**
-           * ------ Bento Products ------
-           * Passwords: IF user is passwordManagement
-           * Secrets: IF user is secretsManagement
-           * Provider: IF user is Provider role
-           * Admin: IF user has administrative permissions
-           * ------ Other Products ------
-           * Organizations: Single org policy NOT in effect for logged in user
-           * Secrets: IF user NOT secretsManagement
-           * Passwords: IF user NOT passwordManagement
-           */
-
-          if (productKey === "organizations") {
-            !isInBento && !this.singleOrgMode && nextOther.push(allProducts[productKey]);
-          } else if (isInBento) {
-            nextBento.push(product);
-          } else if (product.marketingRoute) {
-            nextOther.push(product);
-          }
-        });
-        this.bentoProducts$.next(nextBento);
-        this.otherProducts$.next(nextOther);
-      });
   }
 
   private openMenu() {
@@ -221,3 +202,17 @@ export class ProductSwitcherComponent implements OnInit, OnDestroy {
     this.overlayRef?.dispose();
   }
 }
+
+/**
+ * Partition an array into groups
+ *
+ * To be replaced by `Array.prototype.group()` upon standardization:
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/group
+ *
+ * Source: https://stackoverflow.com/questions/14446511/most-efficient-method-to-groupby-on-an-array-of-objects#answer-64489535
+ */
+const arrayGroup = <T>(array: T[], predicate: (value: T, index: number, array: T[]) => string) =>
+  array.reduce((acc, value, index, array) => {
+    (acc[predicate(value, index, array)] ||= []).push(value);
+    return acc;
+  }, {} as { [key: string]: T[] });
